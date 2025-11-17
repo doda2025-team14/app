@@ -1,0 +1,17 @@
+# F5: This docker file uses 2 stages: build and execute
+# Build has maven and creates a package of the app
+FROM maven:3.9-eclipse-temurin-25-noble AS build
+WORKDIR /app
+COPY ["pom.xml", "./"]
+COPY ["src", "./src"]
+RUN ["mvn", "-B", "package"]
+
+# The execute stage is slim and copies the generated jar and executes it
+# Additionally, it exposes port 8080 where the website is hosted
+FROM eclipse-temurin:25-jre-noble AS run
+COPY --from=build /app/target/*.jar app.jar
+ENV MODEL_HOST="http://localhost:8081"
+ENV APP_PORT=8080
+EXPOSE $APP_PORT
+RUN export MODEL_HOST=$MODEL_HOST
+ENTRYPOINT ["java", "-jar", "app.jar"]
