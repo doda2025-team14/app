@@ -3,7 +3,7 @@ name: Frontend Release
 on:
   push:
     branches:
-      - main
+      - ma
       - 'pr/**' # TODO: remove this after testing
   pull_request:
 
@@ -46,6 +46,8 @@ jobs:
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git fetch origin master
+          git checkout master
           git add pom.xml
           git commit -m "Release frontend version ${NEW_VERSION}" || echo "No changes to commit"
           git tag "v${NEW_VERSION}"
