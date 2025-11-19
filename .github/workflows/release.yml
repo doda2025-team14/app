@@ -10,7 +10,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true || github.event_name == 'push'
     permissions:
       contents: write 
 
@@ -32,7 +31,6 @@ jobs:
           BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
           IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
 
-          # Auto-increment patch on PR merge or main push
           PATCH=$((PATCH + 1))
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
