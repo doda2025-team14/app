@@ -6,7 +6,6 @@ on:
       - main
       - 'pr/**' # TODO: remove this after testing
   pull_request:
-    types: [closed]  
 
 jobs:
   release:
