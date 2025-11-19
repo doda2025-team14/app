@@ -3,66 +3,65 @@ name: Frontend Release
 on:
   push:
     branches:
-      - release-test-fe
-
+      - main
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # Needed to push commits and tags
-      id-token: write
+      contents: write 
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up Java 25
+      # 2. Set up Java 25
+      - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 25
 
-      - name: Determine next version
-        id: bump
+      - name: Read current version
+        id: version
         run: |
-          # Read current version (e.g. "0.0.1-SNAPSHOT")
           CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          echo "Current version is: $CURRENT_VERSION"
-
-          # Strip "-SNAPSHOT" if present
+          echo "CURRENT_VERSION=$CURRENT_VERSION"
           BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
-
-          # Split MAJOR.MINOR.PATCH
+          
+          # Split into major.minor.patch
           IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
-
-          # Bump PATCH version (change logic here if desired)
+          
+          # Optional: bump patch automatically
           PATCH=$((PATCH + 1))
-
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "Will bump version to: $NEW_VERSION"
+          echo "Bumping version: $CURRENT_VERSION → $NEW_VERSION"
 
-      - name: Update pom.xml to new version
+      - name: Update pom.xml version
         run: |
-          mvn versions:set -DnewVersion=$NEW_VERSION
+          mvn versions:set -DnewVersion=${NEW_VERSION} -DgenerateBackupPoms=false
           mvn versions:commit
 
-      - name: Commit and tag version
+      - name: Commit version and tag
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
-
           git add pom.xml
-          git commit -m "Release version $NEW_VERSION"
-          git tag "v$NEW_VERSION"
-
+          git commit -m "Release frontend version ${NEW_VERSION}" || echo "No changes to commit"
+          git tag "v${NEW_VERSION}"
           git push origin main --follow-tags
 
-      - name: Trigger Backend Release
+      # 6. Trigger backend release
+      - name: Trigger backend release
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.BACKEND_REPO_TOKEN }}
-          repository: doda2025-team14/model-service
+          repository: your-org/backend-repo
           event-type: new-version
-          client-payload: '{"version": "${{ env.NEW_VERSION }}"}'
+          client-payload: |
+            {
+              "version": "${{ env.NEW_VERSION }}"
+            }
