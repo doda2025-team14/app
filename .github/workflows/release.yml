@@ -3,15 +3,15 @@ name: Frontend Release
 on:
   push:
     branches:
-      - ma
-      - 'pr/**' # TODO: remove this after testing
+      - master
+      - 'pr/**' # TODO: remove after testing
   pull_request:
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
-      contents: write 
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -41,25 +41,3 @@ jobs:
         run: |
           mvn versions:set -DnewVersion=${NEW_VERSION} -DgenerateBackupPoms=false
           mvn versions:commit
-
-      # - name: Commit version and tag
-      #   run: |
-      #     git config user.name "${{ github.actor }}"
-      #     git config user.email "${{ github.actor }}@users.noreply.github.com"
-      #     git fetch origin master
-      #     git checkout master
-      #     git add pom.xml
-      #     git commit -m "Release frontend version ${NEW_VERSION}" || echo "No changes to commit"
-      #     git tag "v${NEW_VERSION}"
-      #     git push origin master --follow-tags
-
-      - name: Trigger backend release
-        uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.BACKEND_REPO_TOKEN }}
-          repository: doda2025-team14/model-service
-          event-type: new-version
-          client-payload: |
-            {
-              "version": "${{ env.NEW_VERSION }}"
-            }
