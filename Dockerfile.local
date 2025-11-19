@@ -1,0 +1,34 @@
+# F5: This docker file uses 2 stages: build and execute
+# Build has maven and creates a package of the app
+FROM maven:3.9-eclipse-temurin-25-noble AS build
+
+ARG GITHUB_ACTOR
+ARG GITHUB_TOKEN
+
+WORKDIR /app
+COPY ["pom.xml", "./"]
+COPY ["src", "./src"]
+
+RUN mkdir -p /root/.m2 && \
+    echo '<?xml version="1.0" encoding="UTF-8"?>' > /root/.m2/settings.xml && \
+    echo '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"' >> /root/.m2/settings.xml && \
+    echo '  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"' >> /root/.m2/settings.xml && \
+    echo '  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">' >> /root/.m2/settings.xml && \
+    echo '  <servers>' >> /root/.m2/settings.xml && \
+    echo '    <server>' >> /root/.m2/settings.xml && \
+    echo '      <id>github</id>' >> /root/.m2/settings.xml && \
+    echo "      <username>${GITHUB_ACTOR}</username>" >> /root/.m2/settings.xml && \
+    echo "      <password>${GITHUB_TOKEN}</password>" >> /root/.m2/settings.xml && \
+    echo '    </server>' >> /root/.m2/settings.xml && \
+    echo '  </servers>' >> /root/.m2/settings.xml && \
+    echo '</settings>' >> /root/.m2/settings.xml
+
+RUN ["mvn", "-B", "package"]
+
+# The execute stage is smaller and copies the generated jar and executes it
+# Additionally, it exposes port 8080 where the website is hosted
+FROM eclipse-temurin:25-jre-noble AS run
+COPY --from=build /app/target/*.jar app.jar
+ENV MODEL_HOST="http://host.docker.internal:8081"
+ENV SERVER_PORT=8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
