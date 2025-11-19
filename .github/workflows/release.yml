@@ -3,7 +3,8 @@ name: Frontend Release
 on:
   push:
     branches:
-      - main
+      - release-test-fe
+
 
 jobs:
   release:
@@ -62,6 +63,6 @@ jobs:
         uses: peter-evans/repository-dispatch@v2
         with:
           token: ${{ secrets.BACKEND_REPO_TOKEN }}
-          repository: your-org/your-backend-repo
+          repository: doda2025-team14/model-service
           event-type: new-version
           client-payload: '{"version": "${{ env.NEW_VERSION }}"}'
