@@ -10,8 +10,6 @@ RUN ["mvn", "-B", "package"]
 # Additionally, it exposes port 8080 where the website is hosted
 FROM eclipse-temurin:25-jre-noble AS run
 COPY --from=build /app/target/*.jar app.jar
-ENV MODEL_HOST="http://localhost:8081"
-ENV APP_PORT=8080
-EXPOSE $APP_PORT
-RUN export MODEL_HOST=$MODEL_HOST
+ENV MODEL_HOST="http://host.docker.internal:8081"
+ENV SERVER_PORT=8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
