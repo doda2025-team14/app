@@ -49,7 +49,7 @@ jobs:
           git add pom.xml
           git commit -m "Release frontend version ${NEW_VERSION}" || echo "No changes to commit"
           git tag "v${NEW_VERSION}"
-          git push origin main --follow-tags
+          git push origin master --follow-tags
 
       - name: Trigger backend release
         uses: peter-evans/repository-dispatch@v2
