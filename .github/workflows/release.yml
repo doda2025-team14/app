@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-      - 'pr/**' # TODO: remove after testing
   pull_request:
 
 jobs:
