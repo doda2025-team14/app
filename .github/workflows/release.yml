@@ -56,7 +56,9 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg VERSION=$VERSION \
+            --build-arg GITHUB_USER=${{ github.actor }} \
+            --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            --build-arg VERSION=$NEW_VERSION \
             -t ghcr.io/${{ github.repository }}:$NEW_VERSION \
             -t ghcr.io/${{ github.repository }}:latest .
 
