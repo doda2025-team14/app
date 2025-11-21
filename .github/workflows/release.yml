@@ -57,10 +57,10 @@ jobs:
         run: |
           docker build \
             --build-arg VERSION=$VERSION \
-            -t ghcr.io/${{ github.repository }}:$VERSION \
+            -t ghcr.io/${{ github.repository }}:$NEW_VERSION \
             -t ghcr.io/${{ github.repository }}:latest .
 
       - name: Push Docker image
         run: |
-          docker push ghcr.io/${{ github.repository }}:$VERSION
+          docker push ghcr.io/${{ github.repository }}:$NEW_VERSION
           docker push ghcr.io/${{ github.repository }}:latest
