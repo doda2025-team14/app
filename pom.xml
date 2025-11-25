@@ -44,7 +44,7 @@
 		<dependency>
         	<groupId>com.doda2025-team14</groupId>
         	<artifactId>lib-version</artifactId>
-        	<version>1.0.0</version>
+        	<version>1.0.1</version>
     	</dependency>
 	</dependencies>
 
