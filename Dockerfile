@@ -3,7 +3,7 @@
 FROM maven:3.9-eclipse-temurin-25-noble AS build
 WORKDIR /app
 # Credentials for ghcr
-ARG GITHUB_USER
+ARG GITHUB_ACTOR
 ARG GITHUB_TOKEN
 
 # Create settings.xml w/ credentials
@@ -12,7 +12,7 @@ RUN mkdir -p /root/.m2 && \
     <servers>\
         <server>\
             <id>github</id>\
-            <username>${GITHUB_USER}</username>\
+            <username>${GITHUB_ACTOR}</username>\
             <password>${GITHUB_TOKEN}</password>\
         </server>\
     </servers>\

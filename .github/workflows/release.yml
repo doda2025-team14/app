@@ -47,6 +47,15 @@ jobs:
           mvn versions:set -DnewVersion=${NEW_VERSION} -DgenerateBackupPoms=false
           mvn versions:commit
 
+      - name: Commit and Push Version Bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "Bump version to ${NEW_VERSION} [skip ci]"
+          git push
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -57,13 +66,14 @@ jobs:
       - name: Build Docker image
         run: |
           docker build \
-            --build-arg GITHUB_USER=${{ github.actor }} \
+            --build-arg GITHUB_ACTOR=${{ github.actor }} \
             --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             --build-arg VERSION=$NEW_VERSION \
             -t ghcr.io/${{ github.repository }}:$NEW_VERSION \
             -t ghcr.io/${{ github.repository }}:latest .
 
       - name: Push Docker image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           docker push ghcr.io/${{ github.repository }}:$NEW_VERSION
           docker push ghcr.io/${{ github.repository }}:latest
