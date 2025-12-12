@@ -33,15 +33,17 @@ public class MetricsRegistry {
 
       // 3. Histogram
 
-   public static void observeHistogram(String name, double value, double[] buckets, Map<String, String> labels) {
+  public static void observeHistogram(String name, double value, double[] buckets, Map<String, String> labels) {
 
     for (double b : buckets) {
-        String key = name + "_bucket";
-        String labelKey = labelsToKeyWithLe(labels, b);
-        histograms.merge(key + labelKey, 1.0, Double::sum);
-
-        if (value <= b) break;
+        if (value <= b) {
+            String key = name + "_bucket" + labelsToKeyWithLe(labels, b);
+            histograms.merge(key, 1.0, Double::sum);
+        }
     }
+
+    String infKey = name + "_bucket" + labelsToKeyWithLe(labels, Double.POSITIVE_INFINITY);
+    histograms.merge(infKey, 1.0, Double::sum);
 
     String countKey = name + "_count" + labelsToKey(labels);
     histograms.merge(countKey, 1.0, Double::sum);
@@ -49,6 +51,7 @@ public class MetricsRegistry {
     String sumKey = name + "_sum" + labelsToKey(labels);
     histograms.merge(sumKey, value, Double::sum);
 }
+
 
     private static String labelsToKeyWithLe(Map<String, String> labels, double le) {
     StringBuilder sb = new StringBuilder("{");
