@@ -2,6 +2,7 @@ package frontend.metrics;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class MetricsRegistry {
 
@@ -32,19 +33,36 @@ public class MetricsRegistry {
 
       // 3. Histogram
 
-    public static void observeHistogram(String name, double value, double[] buckets, Map<String, String> labels) {
-        for (double b : buckets) {
-            if (value <= b) {
-                String key = name + "_bucket" + labelsToKey(labels) + "_le_" + b;
-                histograms.merge(key, 1.0, Double::sum);
-            }
-        }
-        String countKey = name + "_count" + labelsToKey(labels);
-        histograms.merge(countKey, 1.0, Double::sum);
+  public static void observeHistogram(String name, double value, double[] buckets, Map<String, String> labels) {
 
-        String sumKey = name + "_sum" + labelsToKey(labels);
-        histograms.merge(sumKey, value, Double::sum);
+    for (double b : buckets) {
+        if (value <= b) {
+            String key = name + "_bucket" + labelsToKeyWithLe(labels, b);
+            histograms.merge(key, 1.0, Double::sum);
+        }
     }
+
+    String infKey = name + "_bucket" + labelsToKeyWithLe(labels, Double.POSITIVE_INFINITY);
+    histograms.merge(infKey, 1.0, Double::sum);
+
+    String countKey = name + "_count" + labelsToKey(labels);
+    histograms.merge(countKey, 1.0, Double::sum);
+
+    String sumKey = name + "_sum" + labelsToKey(labels);
+    histograms.merge(sumKey, value, Double::sum);
+}
+
+
+    private static String labelsToKeyWithLe(Map<String, String> labels, double le) {
+    StringBuilder sb = new StringBuilder("{");
+
+    if (labels != null) {
+        labels.forEach((k,v) -> sb.append(k).append("=\"").append(v).append("\","));
+    }
+
+    sb.append("le=\"").append(le).append("\"}");
+    return sb.toString();
+}
 
 
       // Expose Prometheus format
@@ -68,10 +86,37 @@ public class MetricsRegistry {
     }
 
     private static String labelsToKey(Map<String,String> labels) {
-        if (labels == null || labels.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder("{");
-        labels.forEach((k,v) -> sb.append(k).append("=\"").append(v).append("\","));
-        sb.append("}");
-        return sb.toString();
-    }
+    if (labels == null || labels.isEmpty()) return "";
+    return labels.entrySet().stream()
+        .map(e -> e.getKey() + "=\"" + e.getValue() + "\"")
+        .collect(Collectors.joining(",", "{", "}"));
 }
+
+
+
+   public static void incGauge(String name, double delta) {
+    gauges.merge(name, delta, (oldValue, newValue) -> oldValue + newValue);
+}
+
+
+
+    public static Map<String, Double> getCounters() {
+        return Map.copyOf(counters);
+    }
+
+    public static Map<String, Double> getGauges() {
+        return Map.copyOf(gauges);
+    }
+
+    public static Map<String, Double> getHistograms() {
+    StringBuilder sb = new StringBuilder();
+    histograms.entrySet().stream()
+    .sorted(Map.Entry.comparingByKey())
+    .forEach(e -> sb.append(e.getKey()).append(" ").append(e.getValue()).append("\n"));
+
+    return Map.copyOf(histograms);
+}
+
+}
+
+
