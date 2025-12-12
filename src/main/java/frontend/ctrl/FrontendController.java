@@ -2,7 +2,6 @@ package frontend.ctrl;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.env.Environment;
@@ -16,8 +15,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 
 import frontend.data.Sms;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
+import frontend.metrics.MetricsRegistry;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -27,11 +26,9 @@ public class FrontendController {
 
     private final String modelHost;
     private final RestTemplate restTemplate;
-    private final MeterRegistry registry;
 
-    public FrontendController(RestTemplateBuilder restBuilder, Environment env, MeterRegistry registry) {
+    public FrontendController(RestTemplateBuilder restBuilder, Environment env) {
         this.restTemplate = restBuilder.build();
-        this.registry = registry;
         this.modelHost = env.getProperty("MODEL_HOST");
         assertModelHost();
     }
@@ -70,22 +67,35 @@ public class FrontendController {
             sms.result = getPrediction(sms);
             System.out.printf("Prediction: %s%n", sms.result);
             success = true;
+
+            // Success counter
+            MetricsRegistry.incCounter(
+                    "frontend_sms_requests_total",
+                    Map.of("result", sms.result, "status", "success")
+            );
+
             return sms;
+
         } catch (Exception e) {
+
+            // Failure counter
+            MetricsRegistry.incCounter(
+                    "frontend_sms_requests_total",
+                    Map.of("result", "unknown", "status", "failure")
+            );
+
             throw e;
+
         } finally {
             double seconds = (System.nanoTime() - start) / 1_000_000_000.0;
 
-            // Record latency
-            Timer.builder("frontend_prediction_latency_seconds")
-                 .tags("status", success ? "success" : "failure")
-                 .publishPercentileHistogram()
-                 .register(registry)
-                 .record(Duration.ofMillis((long)(seconds * 1000)));
-
-            // Increment counters
-            registry.counter("frontend_sms_requests_total", "result", success ? sms.result : "unknown", "status", success ? "success" : "failure")
-                    .increment();
+            // Latency histogram
+            MetricsRegistry.observeHistogram(
+                    "frontend_prediction_latency_seconds",
+                    seconds,
+                    new double[]{0.1, 0.2, 0.5, 1, 2, 5},   // Prometheus buckets
+                    Map.of("status", success ? "success" : "failure")
+            );
         }
     }
 
