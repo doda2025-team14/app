@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 @RestController
 public class MetricsController {
 
-    @GetMapping(value = "/actuator/prometheus", produces = MediaType.TEXT_PLAIN_VALUE) // Prometheus scrapes this path
+    @GetMapping(value = "/metrics", produces = MediaType.TEXT_PLAIN_VALUE) // Prometheus scrapes this path
     public String metrics() {
         StringBuilder sb = new StringBuilder();
 
