@@ -55,7 +55,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
         run: |
           TAGS="-t ghcr.io/${{ github.repository }}:$NEW_VERSION -t ghcr.io/${{ github.repository }}:latest"
           if [[ "${{ github.ref_name }}" == "feature/continuous-experimentation-setup" ]]; then
@@ -65,14 +71,10 @@ jobs:
             TAGS="$TAGS -t ghcr.io/${{ github.repository }}:stable"
           fi
 
-
-          docker build \
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
             --build-arg GITHUB_USER=${{ github.actor }} \
             --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
             --build-arg VERSION=$NEW_VERSION \
-            $TAGS .
-
-      - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}:$NEW_VERSION
-          docker push -a ghcr.io/${{ github.repository }}
+            $TAGS \
+            --push .
