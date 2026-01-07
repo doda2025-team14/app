@@ -30,24 +30,62 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - name: Read current version
+      - name: Determine version and tags
         id: version
         run: |
+          # Get base version from pom.xml
           CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           BASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
-
-          PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-
-          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "Current version: $CURRENT_VERSION → Next version: $NEW_VERSION"
+          
+          BRANCH="${{ github.ref_name }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          IMAGE="ghcr.io/${{ github.repository }}"
+          
+          # Determine version suffix and semantic tags based on branch
+          if [[ "$BRANCH" == "master" ]]; then
+            # Stable release: increment patch, tag as stable
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+            PATCH=$((PATCH + 1))
+            VERSION="$MAJOR.$MINOR.$PATCH"
+            TAGS="-t $IMAGE:$VERSION -t $IMAGE:stable -t $IMAGE:latest"
+            
+          elif [[ "$BRANCH" == feature/* ]] || [[ "$BRANCH" == experiment/* ]]; then
+            # Feature/experiment branch: append branch name + SHA, tag as experimental
+            BRANCH_SLUG=$(echo "$BRANCH" | sed 's|/|-|g' | tr '[:upper:]' '[:lower:]')
+            VERSION="${BASE_VERSION}-${BRANCH_SLUG}-${SHORT_SHA}"
+            TAGS="-t $IMAGE:$VERSION -t $IMAGE:experimental -t $IMAGE:latest"
+            
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR build: append pr number + SHA, no semantic tags
+            PR_NUM="${{ github.event.pull_request.number }}"
+            VERSION="${BASE_VERSION}-pr-${PR_NUM}-${SHORT_SHA}"
+            TAGS="-t $IMAGE:$VERSION"
+            
+          else
+            # Other branches: just version + SHA
+            VERSION="${BASE_VERSION}-${SHORT_SHA}"
+            TAGS="-t $IMAGE:$VERSION -t $IMAGE:latest"
+          fi
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAGS=$TAGS" >> $GITHUB_ENV
+          echo "Building version: $VERSION"
+          echo "Tags: $TAGS"
 
       - name: Update pom.xml version
         run: |
-          mvn versions:set -DnewVersion=${NEW_VERSION} -DgenerateBackupPoms=false
+          mvn versions:set -DnewVersion=${VERSION} -DgenerateBackupPoms=false
           mvn versions:commit
 
+      - name: Commit and Push Version
+        if: github.ref == 'refs/heads/master'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add pom.xml
+          git commit -m "chore: bump version to $VERSION [skip ci]"
+          git tag "v$VERSION"
+          git push origin master --tags
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -61,20 +99,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         run: |
-          TAGS="-t ghcr.io/${{ github.repository }}:$NEW_VERSION -t ghcr.io/${{ github.repository }}:latest"
-          if [[ "${{ github.ref_name }}" == "feature/continuous-experimentation-setup" ]]; then
-            TAGS="$TAGS -t ghcr.io/${{ github.repository }}:experimental"
-          fi
-          if [[ "${{ github.ref_name }}" == "master" ]]; then
-            TAGS="$TAGS -t ghcr.io/${{ github.repository }}:stable"
-          fi
-
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --build-arg GITHUB_USER=${{ github.actor }} \
             --build-arg GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
-            --build-arg VERSION=$NEW_VERSION \
+            --build-arg VERSION=$VERSION \
             $TAGS \
             --push .
