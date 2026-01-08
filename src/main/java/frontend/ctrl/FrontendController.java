@@ -5,6 +5,10 @@ import java.net.URISyntaxException;
 
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.env.Environment;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,10 +30,12 @@ public class FrontendController {
 
     private final String modelHost;
     private final RestTemplate restTemplate;
+    private final boolean enableCache;
 
     public FrontendController(RestTemplateBuilder restBuilder, Environment env) {
         this.restTemplate = restBuilder.build();
         this.modelHost = env.getProperty("MODEL_HOST");
+        this.enableCache = env.getProperty("ENABLE_CACHE", "false").equalsIgnoreCase("true");
         assertModelHost();
     }
 
@@ -102,9 +108,44 @@ public class FrontendController {
     private String getPrediction(Sms sms) {
         try {
             URI url = new URI(modelHost + "/predict");
-            return restTemplate.postForEntity(url, sms, Sms.class).getBody().result.trim();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+
+            if (enableCache) {
+                headers.set("X-Cache-Enabled", "true");
+            }
+
+            HttpEntity<Sms> requestEntity = new HttpEntity<>(sms, headers);
+            ResponseEntity<Sms> response = restTemplate.exchange(
+                url, 
+                HttpMethod.POST, 
+                requestEntity, 
+                Sms.class
+            );
+
+            return response.getBody().result.trim();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Proxy endpoint to get cache statistics from the model-service.
+     * This allows users to check cache performance without direct access to model-service.
+     */
+    @GetMapping("/cache")
+    @ResponseBody
+    public Map<String, Object> getCacheStats() {
+        try {
+            URI url = new URI(modelHost + "/cache");
+            Map<String, Object> cacheStats = restTemplate.getForObject(url, Map.class);
+            return cacheStats;
+            
+        } catch (Exception e) {
+            return Map.of(
+                "error", "Failed to retrieve cache statistics",
+                "message", e.getMessage()
+            );
         }
     }
 }
